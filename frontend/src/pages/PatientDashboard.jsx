@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Activity, Bell, ArrowRight, LogOut, Plus, UserCircle, Zap } from 'lucide-react';
+import { Calendar, Clock, Activity, Bell, ArrowRight, LogOut, Plus, UserCircle, Zap, MessageSquare, MapPin, FileText, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
@@ -95,12 +95,13 @@ export default function PatientDashboard() {
                 </div>
                 <nav className="p-4 flex-1 space-y-1">
                     {[
-                        { icon: Activity, label: 'Overview', active: true },
-                        { icon: Calendar, label: 'Appointments' },
-                        { icon: Clock, label: 'Queue Status' },
-                        { icon: Bell, label: 'Notifications' },
-                    ].map(({ icon: Icon, label, active }) => (
-                        <button key={label} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors text-left ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+                        { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', active: true },
+                        { icon: Calendar, label: 'Appointments', path: '/book' },
+                        { icon: MessageSquare, label: 'AI Chatbot', path: '/chatbot' },
+                        { icon: FileText, label: 'Report Analysis', path: '/analyze' },
+                        { icon: MapPin, label: 'Find Hospitals', path: '/hospitals' },
+                    ].map(({ icon: Icon, label, path, active }) => (
+                        <button key={label} onClick={() => navigate(path)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors text-left ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
                             <Icon className="w-4 h-4" /> {label}
                         </button>
                     ))}
@@ -212,9 +213,25 @@ export default function PatientDashboard() {
                                 <p className="text-blue-200 text-sm font-medium">Book an appointment to get AI-powered wait time estimates.</p>
                             )}
                         </SlideUp>
+                        {/* Quick AI Tools */}
+                        <SlideUp delay={0.18} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                            <h3 className="font-bold text-slate-900 mb-2">AI Health Tools</h3>
+                            <button onClick={() => navigate('/chatbot')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
+                                <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors"><MessageSquare className="w-5 h-5" /></div>
+                                <div><p className="font-bold text-slate-900 text-sm">HealthQ Assistant</p><p className="text-xs text-slate-500 font-medium">Chat about symptoms</p></div>
+                            </button>
+                            <button onClick={() => navigate('/analyze')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
+                                <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><FileText className="w-5 h-5" /></div>
+                                <div><p className="font-bold text-slate-900 text-sm">Report Analysis</p><p className="text-xs text-slate-500 font-medium">Understand medical tests</p></div>
+                            </button>
+                            <button onClick={() => navigate('/hospitals')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><MapPin className="w-5 h-5" /></div>
+                                <div><p className="font-bold text-slate-900 text-sm">Nearby Hospitals</p><p className="text-xs text-slate-500 font-medium">Live ER availability routing</p></div>
+                            </button>
+                        </SlideUp>
 
                         {/* Notifications */}
-                        <SlideUp delay={0.2} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <SlideUp delay={0.25} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             <div className="flex items-center gap-2 p-5 border-b border-slate-100">
                                 <Bell className="w-4 h-4 text-slate-400" />
                                 <h3 className="font-bold text-slate-900">Notifications</h3>
@@ -233,6 +250,6 @@ export default function PatientDashboard() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

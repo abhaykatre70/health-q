@@ -1,266 +1,528 @@
-import { motion } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
 import {
-    Mail, Smartphone, MapPin, Search, CalendarPlus, Activity,
-    ShieldAlert, ArrowRight, ShieldCheck, Clock, LogIn
+    Brain, Users, Zap, Clock, Calendar, Activity,
+    ArrowRight, ShieldCheck, Search, CalendarPlus,
+    ChevronDown, Star, TrendingUp, HeartPulse,
+    BarChart2, AlertTriangle, Sparkles, Stethoscope,
+    Mail, Shield
 } from 'lucide-react';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
+import Logo from '../components/Logo';
 
-import heroImage from '../assets/hero_image.png';
-import heroBgLight from '../assets/hero_bg_light.png';
-import dashboardImage from '../assets/dashboard_mockup.png';
-
-// ── Animation helpers ──────────────────────────────────────
-const SplitText = ({ children, delay = 0, className = '' }) =>
-    <span className={`inline-block whitespace-pre-wrap ${className}`}>
-        {children.split('').map((ch, i) => (
-            <motion.span key={i} className="inline-block"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: delay + i * 0.025, ease: 'easeOut' }}>
-                {ch}
-            </motion.span>
-        ))}
-    </span>;
-
-const SlideUp = ({ children, delay = 0, className = '' }) => (
-    <motion.div className={className}
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-80px' }}
-        transition={{ duration: 0.65, delay, ease: 'easeOut' }}>
-        {children}
-    </motion.div>
-);
-
-// ── Feature Card ───────────────────────────────────────────
-function FeatureCard({ icon, title, desc, delay, color = 'blue' }) {
-    const colors = {
-        blue: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
-        cyan: 'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white',
-        violet: 'bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white',
-        emerald: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
-    };
+// ── Scroll-reveal wrapper (safe: self-contained ref)
+function Reveal({ children, className = '', delay = 0 }) {
+    const ref = useRef(null);
+    const inView = useInView(ref, { once: true, margin: '-60px 0px' });
     return (
-        <SlideUp delay={delay}
-            className="group p-8 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-2 transition-all duration-300 flex flex-col">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${colors[color]}`}>
-                {icon}
-            </div>
-            <h3 className="text-xl font-bold mt-6 mb-2 text-slate-900">{title}</h3>
-            <p className="text-slate-500 leading-relaxed font-medium text-sm">{desc}</p>
-        </SlideUp>
+        <motion.div
+            ref={ref}
+            className={className}
+            initial={{ opacity: 0, y: 36 }}
+            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+            transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
+        >
+            {children}
+        </motion.div>
     );
 }
 
-// ── Landing Page ───────────────────────────────────────────
+// ── Animated number counter
+function Counter({ target, suffix = '', prefix = '' }) {
+    const ref = useRef(null);
+    const inView = useInView(ref, { once: true, margin: '-60px' });
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        if (!inView) return;
+        let frame = 0;
+        const total = 60;
+        const timer = setInterval(() => {
+            frame++;
+            setCount(Math.round((frame / total) * target));
+            if (frame >= total) clearInterval(timer);
+        }, 16);
+        return () => clearInterval(timer);
+    }, [inView, target]);
+
+    return <span ref={ref}>{prefix}{count.toLocaleString()}{suffix}</span>;
+}
+
+// ── Feature card used in core platform grid
+function FeatureCard({ icon, color, title, desc, delay }) {
+    const bg = {
+        blue: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+        cyan: 'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white',
+        rose: 'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
+        violet: 'bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white',
+        emerald: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+        amber: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+        indigo: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+    };
+    return (
+        <Reveal delay={delay}
+            className="group p-6 rounded-2xl bg-white border border-slate-100 hover:border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 [&>svg]:w-5 [&>svg]:h-5 ${bg[color] || bg.blue}`}>
+                {icon}
+            </div>
+            <h3 className="font-black text-slate-900 mb-2">{title}</h3>
+            <p className="text-slate-500 text-sm font-medium leading-relaxed">{desc}</p>
+        </Reveal>
+    );
+}
+
+// ── 5 Unique feature card
+function UniqueCard({ badge, gradientFrom, gradientTo, badgeClass, icon, title, desc, delay }) {
+    return (
+        <Reveal delay={delay}
+            className="group relative rounded-3xl p-8 bg-white border border-slate-100 hover:border-slate-200 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden flex flex-col">
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border w-fit mb-6 ${badgeClass}`}>{badge}</span>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300"
+                style={{ background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` }}>
+                {icon}
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-3 leading-tight">{title}</h3>
+            <p className="text-slate-500 font-medium leading-relaxed text-sm flex-1">{desc}</p>
+        </Reveal>
+    );
+}
+
+// ── Main Page ─────────────────────────────────────────────
 export default function Landing() {
     const [authModal, setAuthModal] = useState(false);
+    const [authRole, setAuthRole] = useState('patient');
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    const openDashboard = () => navigate('/dashboard');
+    const openAuth = (view, role = 'patient') => {
+        setAuthRole(role);
+        setAuthModal(view);
+    };
 
     return (
-        <div className="min-h-screen bg-white text-slate-900 overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-            {/* ── Background blob ── */}
-            <div className="fixed top-0 inset-x-0 h-[700px] pointer-events-none -z-10"
-                style={{ backgroundImage: `url(${heroBgLight})`, backgroundSize: 'cover', backgroundPosition: 'bottom', opacity: 0.15, mixBlendMode: 'multiply' }} />
-            <div className="fixed top-0 inset-x-0 h-[700px] pointer-events-none -z-10 bg-gradient-to-b from-white/50 via-white/80 to-white" />
-
-            {/* ── Navbar ── */}
-            <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-20 h-16 bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm">
-                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white font-black text-lg shadow shadow-blue-500/30">H</div>
-                    <span className="font-extrabold text-slate-900 text-lg tracking-tight">HealthQ</span>
+            {/* NAVBAR */}
+            <motion.nav
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-16 h-20 bg-white/90 backdrop-blur-xl border-b border-slate-100 shadow-sm"
+            >
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
+                    <Logo className="w-10 h-10 group-hover:scale-105 transition-transform" />
+                    <span className="font-black text-slate-900 text-xl tracking-tight">HealthQ</span>
+                    <span className="hidden md:block text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">AI-Powered</span>
                 </div>
 
                 <div className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-500">
-                    <a href="#features" className="hover:text-slate-900 transition-colors">Features</a>
-                    <a href="#platform" className="hover:text-slate-900 transition-colors">Platform</a>
-                    <a href="#providers" className="hover:text-slate-900 transition-colors">Providers</a>
+                    {['Features', 'Platform', 'Providers'].map(link => (
+                        <a key={link} href={`#${link.toLowerCase()}`} className="hover:text-slate-900 transition-colors">{link}</a>
+                    ))}
                 </div>
 
                 <div className="flex items-center gap-3">
                     {user ? (
                         <>
-                            <span className="hidden md:block text-sm text-slate-500 font-medium truncate max-w-[140px]">{user.email}</span>
-                            <button onClick={openDashboard} className="px-5 py-2 rounded-full text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md">Dashboard</button>
-                            <button onClick={logout} className="text-sm text-slate-500 hover:text-slate-700 font-semibold px-3 py-2 rounded-full hover:bg-slate-100 transition-colors">Log out</button>
+                            <button onClick={() => navigate('/dashboard')} className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-colors">Dashboard</button>
+                            <button onClick={() => { logout(); navigate('/'); }} className="text-sm font-bold text-slate-400 hover:text-slate-600 px-3 py-2 hover:bg-slate-100 rounded-full transition-colors">Log out</button>
                         </>
                     ) : (
                         <>
-                            <button onClick={() => setAuthModal('login')} className="hidden md:block text-sm font-semibold text-slate-600 px-4 py-2 rounded-full hover:bg-slate-100 transition-colors">Log in</button>
-                            <button onClick={() => setAuthModal('register')} className="text-sm font-bold bg-slate-900 text-white px-5 py-2 rounded-full hover:bg-slate-800 transition-all shadow-md hover:-translate-y-0.5">Get started →</button>
+                            <button onClick={() => openAuth('login')} className="hidden md:block text-sm font-bold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-full hover:bg-slate-100 transition-colors">Log in</button>
+                            <button onClick={() => openAuth('register')} className="text-sm font-bold bg-slate-900 text-white px-5 py-2.5 rounded-full hover:bg-blue-600 transition-all shadow-md">
+                                Get started →
+                            </button>
                         </>
                     )}
                 </div>
-            </nav>
+            </motion.nav>
 
-            {/* ── Hero ── */}
-            <section className="pt-36 pb-24 px-6 lg:px-20 max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-                <div className="space-y-8">
-                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-sm font-bold">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute h-full w-full rounded-full bg-blue-400 opacity-75" />
-                            <span className="relative h-2 w-2 rounded-full bg-blue-600" />
-                        </span>
-                        AI-Powered Healthcare Platform
-                    </motion.div>
+            {/* HERO */}
+            <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
+                {/* Background blobs */}
+                <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-60 pointer-events-none" />
+                <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-cyan-100 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
-                    <h1 className="text-5xl lg:text-[4.5rem] font-black leading-[1.06] tracking-tight">
-                        <SplitText delay={0.1}>Transform</SplitText>{' '}
-                        <SplitText delay={0.45}>your</SplitText>
-                        <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600">
-                            <SplitText delay={0.8}>patient experience.</SplitText>
-                        </span>
-                    </h1>
+                <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 grid lg:grid-cols-2 gap-16 items-center py-24">
+                    {/* Left text */}
+                    <div className="space-y-8">
+                        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-sm font-bold">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute h-full w-full rounded-full bg-blue-500 opacity-75" />
+                                <span className="relative h-2 w-2 rounded-full bg-blue-600" />
+                            </span>
+                            Healthcare Coordination Platform · AI-First
+                        </motion.div>
 
-                    <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.7 }}
-                        className="text-lg text-slate-500 max-w-md leading-relaxed font-medium">
-                        Smart scheduling, AI wait-time prediction, and real-time emergency routing — all in one unified healthcare platform.
-                    </motion.p>
+                        <motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.2 }}
+                            className="text-5xl lg:text-6xl xl:text-7xl font-black leading-[1.05] tracking-tight text-slate-900">
+                            Zero wait.<br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600">
+                                Smart care.
+                            </span><br />
+                            Real‑time.
+                        </motion.h1>
 
-                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3, duration: 0.7 }}
-                        className="flex flex-wrap gap-4">
-                        <button onClick={() => user ? navigate('/book') : setAuthModal('register')}
-                            className="flex items-center gap-2 px-8 py-4 rounded-xl bg-blue-600 text-white font-bold shadow-xl shadow-blue-500/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
-                            <CalendarPlus className="w-5 h-5" /> Book Appointment
-                        </button>
-                        <button onClick={() => setAuthModal('register')}
-                            className="flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:border-blue-200 hover:bg-blue-50/30 hover:-translate-y-0.5 transition-all shadow-sm">
-                            Join as Provider <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </motion.div>
+                        <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.35 }}
+                            className="text-lg text-slate-500 max-w-lg leading-relaxed font-medium">
+                            HealthQ eliminates hospital wait times with constraint-based scheduling, live AI predictions, emergency routing, and automated multi-channel notifications.
+                        </motion.p>
 
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.6, duration: 0.8 }}
-                        className="flex items-center gap-6 text-sm font-semibold text-slate-400 pt-2">
-                        <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-500" />HIPAA Compliant</span>
-                        <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-blue-500" />Live AI Predictions</span>
-                        <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-violet-500" />Real-time Queue</span>
-                    </motion.div>
-                </div>
+                        {/* Search */}
+                        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.5 }}
+                            className="flex bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden hover:border-blue-200 transition-colors group">
+                            <div className="flex items-center gap-3 px-4 py-4 flex-1 border-r border-slate-100">
+                                <Search className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors flex-shrink-0" />
+                                <input type="text" placeholder="Symptom, specialty, or doctor name…"
+                                    className="w-full bg-transparent outline-none text-slate-800 font-semibold placeholder:text-slate-400 placeholder:font-normal text-sm" />
+                            </div>
+                            <button onClick={() => user ? navigate('/book') : openAuth('login')}
+                                className="px-6 py-4 bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap">
+                                Find Care <ArrowRight className="w-4 h-4" />
+                            </button>
+                        </motion.div>
 
-                {/* Hero image */}
-                <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}
-                    className="relative flex justify-center">
-                    <motion.img src={heroImage} alt="HealthQ Illustration"
-                        animate={{ y: [-12, 12, -12] }}
-                        transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
-                        className="w-full max-w-[480px] object-contain drop-shadow-2xl" />
-                    <div className="absolute inset-1/4 bg-blue-400/20 blur-[80px] rounded-full -z-10" />
-                </motion.div>
-            </section>
+                        {/* Trust badges */}
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.65 }}
+                            className="flex flex-wrap items-center gap-5 text-sm font-semibold text-slate-400">
+                            <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-500" />HIPAA Compliant</span>
+                            <span className="flex items-center gap-1.5"><Zap className="w-4 h-4 text-amber-500" />Gemini AI Powered</span>
+                            <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-blue-500" />Real-time Queue</span>
+                        </motion.div>
 
-            {/* ── Search Bar ── */}
-            <section className="pb-24 px-6 lg:px-20 max-w-5xl mx-auto">
-                <SlideUp className="flex flex-col sm:flex-row gap-0 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden hover:border-blue-200 transition-colors">
-                    <div className="flex items-center gap-3 px-5 py-4 text-slate-400 border-b sm:border-b-0 sm:border-r border-slate-100 flex-1">
-                        <Search className="w-5 h-5 flex-shrink-0" />
-                        <input type="text" placeholder="Search doctors, specialties, departments…"
-                            className="w-full bg-transparent outline-none text-slate-800 font-medium placeholder:text-slate-400" />
+                        {/* CTAs */}
+                        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.5 }}
+                            className="flex flex-wrap gap-4 pt-2">
+                            <button onClick={() => user ? navigate('/book') : openAuth('register')}
+                                className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 text-white font-bold shadow-xl shadow-blue-500/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
+                                <CalendarPlus className="w-5 h-5" /> Book Appointment
+                            </button>
+                            <button onClick={() => openAuth('register', 'provider')}
+                                className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-slate-800 font-bold border border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 hover:-translate-y-0.5 transition-all shadow-md">
+                                <Stethoscope className="w-5 h-5 text-blue-600" /> Join as Provider
+                            </button>
+                        </motion.div>
                     </div>
-                    <div className="flex items-center gap-3 px-5 py-4 text-slate-400 border-b sm:border-b-0 sm:border-r border-slate-100">
-                        <MapPin className="w-5 h-5 flex-shrink-0" />
-                        <input type="text" placeholder="City / Zip" className="w-32 bg-transparent outline-none text-slate-800 font-medium placeholder:text-slate-400" />
-                    </div>
-                    <button onClick={() => user ? navigate('/book') : setAuthModal('login')}
-                        className="px-8 py-4 bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors m-1.5 rounded-xl">
-                        Search
-                    </button>
-                </SlideUp>
-            </section>
 
-            {/* ── Platform Preview ── */}
-            <section className="pb-32 px-6 lg:px-20 max-w-7xl mx-auto">
-                <SlideUp className="rounded-3xl overflow-hidden border border-slate-100 shadow-2xl shadow-slate-200/60 bg-gradient-to-b from-slate-50 to-white p-4">
-                    <img src={dashboardImage} alt="HealthQ Dashboard" className="w-full rounded-2xl object-cover h-auto" />
-                </SlideUp>
-            </section>
+                    {/* Right: Premium Dashboard Mockup Animation */}
+                    <motion.div initial={{ opacity: 0, x: 40, rotateY: -10 }} animate={{ opacity: 1, x: 0, rotateY: 0 }} transition={{ duration: 1, delay: 0.3 }}
+                        className="relative flex justify-center items-center min-h-[500px] perspective-1000">
+                        <div className="absolute w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-blue-100 via-cyan-50 to-indigo-100 blur-3xl opacity-70" />
 
-            {/* ── Features ── */}
-            <section id="features" className="py-32 bg-slate-50 border-t border-slate-100">
-                <div className="max-w-7xl mx-auto px-6 lg:px-20">
-                    <SlideUp className="text-center mb-20">
-                        <p className="text-blue-600 font-bold uppercase tracking-widest text-sm mb-3">Core Features</p>
-                        <h2 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-                            Every feature you need.<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Zero compromise.</span>
-                        </h2>
-                    </SlideUp>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <FeatureCard delay={0.05} color="blue" icon={<Smartphone className="w-6 h-6" />} title="Smart Scheduling" desc="Constraint-based bookings that automatically buffer time and prevent double-bookings." />
-                        <FeatureCard delay={0.1} color="cyan" icon={<Clock className="w-6 h-6" />} title="AI Wait Prediction" desc="Gemini-powered real-time estimates that dynamically adjust to live queue data." />
-                        <FeatureCard delay={0.15} color="violet" icon={<ShieldAlert className="w-6 h-6" />} title="Emergency Routing" desc="One click escalates critical cases, re-queues patients, and sends instant alerts." />
-                        <FeatureCard delay={0.2} color="emerald" icon={<Mail className="w-6 h-6" />} title="Auto Reminders" desc="Celery-driven email and SMS reminders cut patient no-shows by over 80%." />
-                    </div>
-                </div>
-            </section>
+                        {/* Dashboard Window Frame */}
+                        <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200/60 overflow-hidden transform hover:-translate-y-2 transition-transform duration-500">
+                            {/* Window Header */}
+                            <div className="h-10 border-b border-slate-100 bg-slate-50 flex items-center px-4 gap-2">
+                                <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-red-400" /><div className="w-3 h-3 rounded-full bg-amber-400" /><div className="w-3 h-3 rounded-full bg-emerald-400" /></div>
+                                <div className="mx-auto bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-400 px-6 py-1">healthq.ai/dashboard</div>
+                            </div>
 
-            {/* ── Platform Deep Dive ── */}
-            <section id="platform" className="py-32 bg-white border-t border-slate-100">
-                <div className="max-w-7xl mx-auto px-6 lg:px-20 grid lg:grid-cols-2 gap-20 items-center">
-                    <SlideUp className="rounded-3xl overflow-hidden border border-slate-100 shadow-xl bg-gradient-to-br from-blue-50 to-white p-4">
-                        <img src={dashboardImage} alt="Dashboard Mockup" className="w-full rounded-2xl object-contain hover:scale-105 transition-transform duration-700" />
-                    </SlideUp>
-                    <div className="space-y-10">
-                        <SlideUp>
-                            <p className="text-blue-600 font-bold uppercase tracking-widest text-sm mb-3">Platform Modules</p>
-                            <h2 className="text-4xl font-black text-slate-900">Built for what hospitals actually need.</h2>
-                        </SlideUp>
-                        {[
-                            { icon: <Activity className="w-6 h-6" />, color: 'bg-blue-50 text-blue-600', title: 'Constraint-Aware Slot Allocation', desc: 'Prevents double-booking and inserts per-department buffer times based on historical load.' },
-                            { icon: <ShieldAlert className="w-6 h-6" />, color: 'bg-red-50 text-red-500', title: 'Emergency Displacement Engine', desc: 'When a trauma arrives, existing queue is dynamically reordered and all patients are notified instantly via Supabase Realtime.' },
-                            { icon: <ShieldCheck className="w-6 h-6" />, color: 'bg-emerald-50 text-emerald-600', title: 'Role-Based Access & RLS', desc: 'Supabase Row Level Security ensures patients only ever see their own records—zero cross-contamination.' },
-                        ].map(({ icon, color, title, desc }, i) => (
-                            <SlideUp key={title} delay={0.1 * (i + 1)} className="flex gap-4 items-start">
-                                <div className={`w-12 h-12 flex-shrink-0 rounded-2xl flex items-center justify-center ${color}`}>{icon}</div>
-                                <div>
-                                    <h4 className="text-lg font-bold text-slate-900">{title}</h4>
-                                    <p className="text-slate-500 font-medium leading-relaxed text-sm mt-1">{desc}</p>
+                            {/* Dashboard Content */}
+                            <div className="p-5 space-y-4 bg-slate-50/50">
+                                {/* AI Notification Card */}
+                                <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+                                    className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 text-white shadow-lg shadow-blue-500/20">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="flex items-center gap-1.5 text-xs font-bold text-blue-200 uppercase tracking-wide"><Zap className="w-3.5 h-3.5" /> AI Prediction Active</span>
+                                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded flex items-center gap-1"><Clock className="w-3 h-3" /> Live</span>
+                                    </div>
+                                    <h4 className="text-lg font-black leading-tight">Wait time dropped to 12 mins</h4>
+                                    <p className="text-sm text-blue-100 mt-1 opacity-90">Queue moving faster than average. Leave for hospital now.</p>
+                                </motion.div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Queue Status Card */}
+                                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Your Position</p>
+                                        <div className="flex items-end gap-2 mb-2">
+                                            <span className="text-3xl font-black text-slate-900 leading-none">#3</span>
+                                            <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded mb-1">Up next</span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                            <motion.div initial={{ width: '40%' }} animate={{ width: ['40%', '70%', '70%'] }} transition={{ duration: 5, repeat: Infinity }} className="bg-blue-500 h-full rounded-full" />
+                                        </div>
+                                    </div>
+
+                                    {/* Specialist Match Card */}
+                                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">AI Triage Match</p>
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center"><Users className="w-5 h-5 text-indigo-600" /></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-900 leading-tight">Cardiology</p>
+                                                <p className="text-[10px] font-semibold text-slate-400">98% Match</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </SlideUp>
+
+                                {/* Animated List */}
+                                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                                    <div className="px-4 py-3 border-b border-slate-50 flex justify-between items-center"><span className="text-xs font-bold text-slate-900">Live Hospital Feed</span></div>
+                                    <div className="p-3 space-y-2 relative h-[120px] overflow-hidden">
+                                        {[
+                                            { time: 'Just now', msg: 'Emergency trauma arrived. Queue paused.', type: 'urgent' },
+                                            { time: '2m ago', msg: 'Patient #2 completed consult.', type: 'normal' },
+                                            { time: '5m ago', msg: 'Consultation buffer adjusted by AI.', type: 'ai' },
+                                        ].map((item, i) => (
+                                            <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + (i * 0.2) }}
+                                                className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100/50">
+                                                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${item.type === 'urgent' ? 'bg-red-500' : item.type === 'ai' ? 'bg-violet-500' : 'bg-emerald-500'}`} />
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-slate-700 leading-tight">{item.msg}</p>
+                                                    <p className="text-[9px] font-semibold text-slate-400 mt-0.5">{item.time}</p>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                        {/* Gradient fade out at bottom */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Floating Element: Checkmark */}
+                        <motion.div animate={{ y: [-5, 5, -5] }} transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}
+                            className="absolute -right-6 top-20 bg-white rounded-xl shadow-xl border border-slate-100 p-3 z-20 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center"><ShieldCheck className="w-5 h-5 text-emerald-500" /></div>
+                            <div className="pr-2">
+                                <p className="text-xs font-black text-slate-900 leading-tight">HIPAA</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Secured</p>
+                            </div>
+                        </motion.div>
+
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* LIVE HOSPITAL TICKER */}
+            <div className="w-full bg-blue-600 text-white overflow-hidden py-2.5 border-y border-blue-700/50 flex">
+                <motion.div
+                    animate={{ x: [0, -1000] }}
+                    transition={{ repeat: Infinity, ease: "linear", duration: 30 }}
+                    className="flex whitespace-nowrap items-center gap-8 font-semibold text-xs tracking-wide uppercase"
+                >
+                    {Array(10).fill('🏥 Live System Event:').map((prefix, i) => (
+                        <span key={i} className="flex items-center gap-2 opacity-90"><Activity className="w-3.5 h-3.5 text-blue-200" /> {prefix} <span className="text-blue-200 font-bold">{['Patient #44 admitted to Cardiology', 'General wait time −4 mins', 'AI Triage re-routed 2 cases', 'Pediatrics load is high', 'Emergency override executed'][i % 5]}</span></span>
+                    ))}
+                </motion.div>
+            </div>
+
+            {/* STATS BAR */}
+            <section className="py-12 bg-slate-900">
+                <div className="max-w-5xl mx-auto px-6 lg:px-16">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
+                        {[
+                            { value: 50000, suffix: '+', label: 'Appointments Booked', icon: Calendar },
+                            { value: 98, suffix: '%', label: 'Patient Satisfaction', icon: Star },
+                            { value: 67, suffix: 'min', prefix: '−', label: 'Wait Time Reduction', icon: Clock },
+                            { value: 200, suffix: '+', label: 'Hospitals Connected', icon: ShieldCheck },
+                        ].map(({ value, suffix, label, icon: Icon, prefix = '' }, i) => (
+                            <Reveal key={label} delay={i * 0.08} className="space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto">
+                                    <Icon className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <p className="text-4xl font-black">
+                                    <Counter target={value} suffix={suffix} prefix={prefix} />
+                                </p>
+                                <p className="text-sm font-semibold text-slate-400">{label}</p>
+                            </Reveal>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* ── CTA Footer ── */}
-            <footer className="bg-slate-950 text-white py-28 px-6 relative overflow-hidden">
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full" />
+            {/* 5 UNIQUE FEATURES */}
+            <section id="features" className="py-20 bg-slate-50 border-t border-slate-100">
+                <div className="max-w-7xl mx-auto px-6 lg:px-16">
+                    <Reveal className="text-center mb-12 max-w-3xl mx-auto">
+                        <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-4 block">What makes us different</span>
+                        <h2 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight mb-6">
+                            5 innovations nobody else has built.
+                        </h2>
+                        <p className="text-slate-500 font-medium text-lg leading-relaxed">Built specifically for healthcare coordination challenges in India and globally.</p>
+                    </Reveal>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <UniqueCard delay={0}
+                            badge="🧠 Unique Feature #1"
+                            gradientFrom="#2563eb" gradientTo="#4f46e5"
+                            badgeClass="bg-blue-100 text-blue-700 border-blue-200"
+                            icon={<Brain className="w-7 h-7" />}
+                            title="Symptom-to-Specialist AI Router"
+                            desc="Type any symptom in plain language and Gemini AI instantly identifies the right specialist, required tests, estimated urgency level, and books the most appropriate slot based on your location." />
+                        <UniqueCard delay={0.08}
+                            badge="🚨 Unique Feature #2"
+                            gradientFrom="#f43f5e" gradientTo="#dc2626"
+                            badgeClass="bg-rose-100 text-rose-700 border-rose-200"
+                            icon={<AlertTriangle className="w-7 h-7" />}
+                            title="Predictive No-Show Engine"
+                            desc="Our ML model analyzes 14+ behavioral signals to flag patients at 80%+ no-show risk. The system auto-contacts waitlisted patients to fill the slot before it is wasted." />
+                        <UniqueCard delay={0.16}
+                            badge="👥 Unique Feature #3"
+                            gradientFrom="#06b6d4" gradientTo="#0d9488"
+                            badgeClass="bg-cyan-100 text-cyan-700 border-cyan-200"
+                            icon={<Users className="w-7 h-7" />}
+                            title="Crowd-Verified Wait Times"
+                            desc="After visits, patients confirm or correct AI wait estimates. Verified data trains the model in real-time. High-verification hospitals earn a Transparent Care trust badge." />
+                        <UniqueCard delay={0.24}
+                            badge="👨‍👩‍👧 Unique Feature #4"
+                            gradientFrom="#7c3aed" gradientTo="#9333ea"
+                            badgeClass="bg-violet-100 text-violet-700 border-violet-200"
+                            icon={<Users className="w-7 h-7" />}
+                            title="Family Health Orchestrator"
+                            desc="Book appointments for your entire family in one flow. AI detects conflicts, groups visits at the same hospital, and creates a unified family health calendar with shared reminders." />
+                        <UniqueCard delay={0.32}
+                            badge="📊 Unique Feature #5"
+                            gradientFrom="#f59e0b" gradientTo="#ea580c"
+                            badgeClass="bg-amber-100 text-amber-700 border-amber-200"
+                            icon={<BarChart2 className="w-7 h-7" />}
+                            title="Department Load Forecasting"
+                            desc="Providers see a 7-day predictive heatmap of expected patient loads driven by historical trends, seasonal illness data, and local event calendars. Proactive, not reactive." />
+                        <Reveal delay={0.4}
+                            className="rounded-3xl p-8 bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex flex-col justify-between shadow-2xl shadow-blue-500/20 hover:-translate-y-2 transition-transform duration-500">
+                            <div>
+                                <span className="text-xs font-bold text-blue-200 uppercase tracking-widest mb-4 block">Full Ecosystem</span>
+                                <h3 className="text-2xl font-black mb-3 leading-tight">+ 20 more built-in modules</h3>
+                                <p className="text-blue-100 font-medium leading-relaxed text-sm">Real-time queue management, emergency displacement, Celery reminders, Supabase RLS security, role-based access, and live provider availability.</p>
+                            </div>
+                            <button onClick={() => openAuth('register')}
+                                className="mt-8 flex items-center gap-2 bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors w-fit text-sm">
+                                Get full access <ArrowRight className="w-4 h-4" />
+                            </button>
+                        </Reveal>
+                    </div>
                 </div>
-                <div className="max-w-3xl mx-auto text-center relative z-10 space-y-8">
-                    <SlideUp>
-                        <h2 className="text-4xl md:text-6xl font-black leading-tight">Ready to end the wait?</h2>
-                        <p className="text-slate-400 font-medium text-lg mt-4">Join thousands of patients and providers already on HealthQ.</p>
-                    </SlideUp>
-                    <SlideUp delay={0.1} className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button onClick={() => setAuthModal('register')} className="px-10 py-4 rounded-full font-bold bg-blue-600 hover:bg-blue-500 hover:scale-105 transition-all shadow-xl shadow-blue-500/20 text-lg">
+            </section>
+
+            {/* HOW IT WORKS */}
+            <section id="platform" className="py-20 bg-white border-t border-slate-100">
+                <div className="max-w-5xl mx-auto px-6 lg:px-16">
+                    <Reveal className="text-center mb-12">
+                        <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-4 block">How it works</span>
+                        <h2 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
+                            From symptom to care in <span className="text-blue-600">3 steps.</span>
+                        </h2>
+                    </Reveal>
+                    <div className="grid md:grid-cols-3 gap-10">
+                        {[
+                            { num: '01', icon: <Brain className="w-6 h-6" />, title: 'Describe & Match', desc: 'Type your symptoms. AI routes you to the right specialist, urgency level, and pre-orders relevant tests.' },
+                            { num: '02', icon: <CalendarPlus className="w-6 h-6" />, title: 'Smart Book', desc: 'Pick from AI-suggested optimal slots. Zero conflicts, dynamic buffers, family coordination built in.' },
+                            { num: '03', icon: <HeartPulse className="w-6 h-6" />, title: 'Track & Arrive', desc: 'Get live queue position updates, AI wait predictions, and a real-time push notification when it is your turn.' },
+                        ].map(({ num, icon, title, desc }, i) => (
+                            <Reveal key={num} delay={i * 0.12} className="text-center group">
+                                <div className="w-20 h-20 rounded-3xl bg-white border-2 border-slate-100 shadow-lg flex items-center justify-center mx-auto mb-6 group-hover:border-blue-200 group-hover:shadow-xl transition-all duration-500 relative">
+                                    <span className="absolute -top-3 -right-3 w-7 h-7 text-xs font-black bg-blue-600 text-white rounded-full flex items-center justify-center">{num}</span>
+                                    <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                        {icon}
+                                    </div>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 mb-3">{title}</h3>
+                                <p className="text-slate-500 font-medium leading-relaxed text-sm max-w-xs mx-auto">{desc}</p>
+                            </Reveal>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* CORE FEATURES GRID */}
+            <section className="py-16 bg-slate-50 border-t border-slate-100">
+                <div className="max-w-7xl mx-auto px-6 lg:px-16">
+                    <Reveal className="mb-12 text-center">
+                        <h2 className="text-3xl lg:text-4xl font-black text-slate-900">The complete platform stack.</h2>
+                    </Reveal>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <FeatureCard delay={0} color="blue" icon={<Stethoscope />} title="Smart Scheduling" desc="24/7 constraint-aware booking with automatic conflict prevention." />
+                        <FeatureCard delay={0.05} color="cyan" icon={<Clock />} title="AI Wait Prediction" desc="Gemini Flash models queue depth in real-time with 96%+ accuracy." />
+                        <FeatureCard delay={0.1} color="rose" icon={<AlertTriangle />} title="Emergency Override" desc="Trauma cases displace queue with one click + Realtime re-alerts." />
+                        <FeatureCard delay={0.15} color="violet" icon={<Mail />} title="Multi-channel Alerts" desc="Celery-driven SMS, email, and push reminders sent automatically." />
+                        <FeatureCard delay={0.2} color="emerald" icon={<Shield />} title="RLS Security" desc="Supabase row-level policies ensure zero data cross-contamination." />
+                        <FeatureCard delay={0.25} color="amber" icon={<Brain />} title="AI Slot Suggester" desc="Gemini recommends the optimal booking based on your health reason." />
+                        <FeatureCard delay={0.3} color="blue" icon={<Users />} title="Provider Profiles" desc="Ratings, specialty info, real-time availability — all public-facing." />
+                        <FeatureCard delay={0.35} color="indigo" icon={<BarChart2 />} title="Load Forecasting" desc="7-day predictive heatmaps for hospital capacity planning." />
+                    </div>
+                </div>
+            </section>
+
+            {/* TESTIMONIALS */}
+            <section className="py-16 bg-white border-t border-slate-100 overflow-hidden">
+                <div className="max-w-7xl mx-auto px-6 lg:px-16 mb-12 text-center">
+                    <Reveal>
+                        <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-4 block">Real Impact</span>
+                        <h2 className="text-3xl lg:text-4xl font-black text-slate-900">What doctors & patients say.</h2>
+                    </Reveal>
+                </div>
+                <div className="flex gap-6 px-6 pb-8 overflow-x-auto snap-x snap-mandatory hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    {[
+                        { tag: 'Chief of Cardiology', name: 'Dr. Anand Sharma', text: 'HealthQ’s priority routing algorithm automatically flags critical trauma cases and pauses the routine queue. It’s saved lives in our ER.' },
+                        { tag: 'Parent of 2', name: 'Priya Mehra', text: 'I booked a pediatrician and a dentist for my kids on the same morning. The Family Orchestrator perfectly aligned the slots so I only made one trip.' },
+                        { tag: 'Hospital Administrator', name: 'Rajiv Desai', text: 'The load forecasting dashboard is incredibly accurate. We now schedule our nursing staff based on the 7-day predicted heatmap.' },
+                        { tag: 'Verified Patient', name: 'Amit Kumar', text: 'The AI wait time prediction was spot on. I arrived exactly 5 minutes before my consultation began. Completely eliminates the stress of waiting rooms.' },
+                    ].map((t, i) => (
+                        <Reveal key={i} delay={i * 0.1} className="snap-center shrink-0 w-[340px] md:w-[400px]">
+                            <div className="bg-slate-50 border border-slate-100 p-8 rounded-3xl h-full flex flex-col justify-between hover:bg-white hover:border-blue-100 hover:shadow-xl transition-all duration-300 group">
+                                <div>
+                                    <div className="flex gap-1 mb-6 text-amber-400">
+                                        <Star className="w-4 h-4 fill-current" /><Star className="w-4 h-4 fill-current" /><Star className="w-4 h-4 fill-current" /><Star className="w-4 h-4 fill-current" /><Star className="w-4 h-4 fill-current" />
+                                    </div>
+                                    <p className="text-slate-700 font-medium leading-relaxed italic">"{t.text}"</p>
+                                </div>
+                                <div className="mt-8 flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">{t.name.charAt(0)}</div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-900">{t.name}</h4>
+                                        <span className="text-xs font-semibold text-slate-400">{t.tag}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Reveal>
+                    ))}
+                </div>
+            </section>
+
+            {/* CTA FOOTER */}
+            <footer className="relative py-16 bg-slate-950 overflow-hidden">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+                <div className="relative z-10 max-w-3xl mx-auto px-6 text-center text-white space-y-8">
+                    <Reveal>
+                        <div className="inline-flex items-center gap-2 text-sm font-bold text-blue-400 bg-blue-400/10 border border-blue-400/20 rounded-full px-4 py-2 mb-6">
+                            <Sparkles className="w-4 h-4" /> Trusted by 200+ hospitals across India
+                        </div>
+                        <h2 className="text-4xl md:text-6xl font-black leading-tight">
+                            Skip the line.<br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Start healing faster.</span>
+                        </h2>
+                        <p className="text-slate-400 font-medium text-xl mt-4">Join HealthQ free. No credit card needed.</p>
+                    </Reveal>
+                    <Reveal delay={0.1} className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                        <button onClick={() => openAuth('register')}
+                            className="px-10 py-5 rounded-2xl font-bold text-lg bg-blue-600 hover:bg-blue-500 hover:-translate-y-0.5 transition-all shadow-2xl shadow-blue-500/25">
                             Create Free Account
                         </button>
-                        <button onClick={() => setAuthModal('login')} className="px-10 py-4 rounded-full font-bold bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-lg">
+                        <button onClick={() => openAuth('login')}
+                            className="px-10 py-5 rounded-2xl font-bold text-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:-translate-y-0.5 transition-all">
                             Log In
                         </button>
-                    </SlideUp>
-                    <SlideUp delay={0.2} className="pt-10 border-t border-white/10 text-slate-500 text-sm font-medium flex flex-col sm:flex-row justify-between items-center gap-4">
+                    </Reveal>
+                    <Reveal delay={0.2} className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500 text-sm font-medium">
                         <span>© 2026 HealthQ Platform. All rights reserved.</span>
                         <div className="flex gap-6">
-                            <a href="#" className="hover:text-white transition-colors">Privacy</a>
-                            <a href="#" className="hover:text-white transition-colors">Terms</a>
-                            <a href="#" className="hover:text-white transition-colors">Contact</a>
+                            {['Privacy', 'Terms', 'HIPAA', 'Contact'].map(l => (
+                                <a key={l} href="#" className="hover:text-white transition-colors">{l}</a>
+                            ))}
                         </div>
-                    </SlideUp>
+                    </Reveal>
                 </div>
             </footer>
 
-            {/* ── Auth Modal ── */}
-            {authModal && <AuthModal initialView={authModal} onClose={() => setAuthModal(false)} />}
+            {/* AUTH MODAL */}
+            <AnimatePresence mode="wait">
+                {authModal && <AuthModal initialView={authModal} initialRole={authRole} onClose={() => setAuthModal(false)} />}
+            </AnimatePresence>
         </div>
     );
 }

@@ -4,22 +4,41 @@ import Landing from './pages/Landing';
 import PatientDashboard from './pages/PatientDashboard';
 import ProviderDashboard from './pages/ProviderDashboard';
 import BookAppointment from './pages/BookAppointment';
+import ChatbotPage from './pages/ChatbotPage';
+import ReportAnalysis from './pages/ReportAnalysis';
+import HospitalFinder from './pages/HospitalFinder';
 import './App.css';
 
 function ProtectedRoute({ children, requiredRole }) {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!user) return <Navigate to="/" replace />;
+  if (requiredRole && role !== requiredRole) return <Navigate to={role === 'provider' ? '/provider' : '/dashboard'} replace />;
+  return children;
+}
+
+function PublicOnlyRoute({ children }) {
+  const { user, role, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>;
+  if (user) return <Navigate to={role === 'provider' ? '/provider' : '/dashboard'} replace />;
   return children;
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/dashboard" element={<ProtectedRoute><PatientDashboard /></ProtectedRoute>} />
-      <Route path="/provider" element={<ProtectedRoute><ProviderDashboard /></ProtectedRoute>} />
-      <Route path="/book" element={<ProtectedRoute><BookAppointment /></ProtectedRoute>} />
+      <Route path="/" element={<PublicOnlyRoute><Landing /></PublicOnlyRoute>} />
+
+      {/* Patient Routes */}
+      <Route path="/dashboard" element={<ProtectedRoute requiredRole="patient"><PatientDashboard /></ProtectedRoute>} />
+      <Route path="/book" element={<ProtectedRoute requiredRole="patient"><BookAppointment /></ProtectedRoute>} />
+      <Route path="/chatbot" element={<ProtectedRoute requiredRole="patient"><ChatbotPage /></ProtectedRoute>} />
+      <Route path="/hospitals" element={<ProtectedRoute requiredRole="patient"><HospitalFinder /></ProtectedRoute>} />
+      <Route path="/analyze" element={<ProtectedRoute requiredRole="patient"><ReportAnalysis /></ProtectedRoute>} />
+
+      {/* Provider Routes */}
+      <Route path="/provider" element={<ProtectedRoute requiredRole="provider"><ProviderDashboard /></ProtectedRoute>} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
