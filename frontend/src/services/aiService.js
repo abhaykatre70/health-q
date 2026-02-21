@@ -1,13 +1,17 @@
 import OpenAI from 'openai';
 
-const OPENAI_KEY = 'REDACTED';
-const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
+const GROQ_KEY = 'REDACTED';
+const openai = new OpenAI({
+    apiKey: GROQ_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
+    dangerouslyAllowBrowser: true
+});
 
 const genAI = {
     getGenerativeModel: () => ({
         generateContent: async (prompt) => {
             const completion = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
+                model: "llama-3.3-70b-versatile",
                 messages: [{ role: "user", content: prompt }]
             });
             return {

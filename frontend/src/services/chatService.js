@@ -1,7 +1,11 @@
 import OpenAI from 'openai';
 
-const OPENAI_KEY = 'REDACTED';
-const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
+const GROQ_KEY = 'REDACTED';
+const openai = new OpenAI({
+    apiKey: GROQ_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
+    dangerouslyAllowBrowser: true
+});
 
 const SYSTEM_INSTRUCTION = `You are HealthQ Assistant, an empathetic, highly knowledgeable AI healthcare coordinator. 
 Your goals are to:
@@ -31,7 +35,7 @@ export async function createChatSession(history = []) {
         sendMessage: async (text) => {
             currentHistory.push({ role: 'user', content: text });
             const response = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: 'llama-3.3-70b-versatile',
                 messages: currentHistory
             });
             const reply = response.choices[0].message.content;
