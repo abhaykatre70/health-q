@@ -6,12 +6,18 @@ Powered by advanced AI for medical triage, wait-time forecasting, and smart sche
 
 ### 🌐 Live Demo: [https://health-q-three.vercel.app/](https://health-q-three.vercel.app/)
 
-## 🏆 Team Abhiyanta
+---
 
-Built with ❤️ by **Team Abhiyanta**:
-- **Piyush Lomte** - Full Stack Developer
-- **Abhay Katre** - Full Stack Developer
-- **Vinay Ninave** - Full Stack Developer
+## 🏆 HackWhack 3.0 - 2nd Runner Up
+
+**Team Abhiyanta** proudly secured the **2nd Runner Up** position at **HackWhack 3.0**, hosted at SBJITMR Nagpur. 
+
+Competing against approximately **450 students** in an intense 24-hour hackathon, our 3-member team successfully cleared the first round (PPT presentation) and spent the full night coding to deliver this fully working prototype. The project features a complete backend integration, automated AI services, secure authentication, and deployment best practices, effectively solving real-world clinical coordination challenges.
+
+### Built with ❤️ by Team Abhiyanta:
+- **[Abhay Katre](https://github.com/abhaykatre70)** - Full Stack Developer
+- **[Vinay Ninave](https://github.com/ninavevinay)** - Full Stack Developer
+- **[Piyush Lomte](https://github.com/piyushlomte)** - Full Stack Developer
 
 ---
 
@@ -19,7 +25,7 @@ Built with ❤️ by **Team Abhiyanta**:
 
 ### For Patients
 - **Smart Appointment Booking**: Schedule appointments with an intelligent, dynamic UI that visually routes patients to the right specialist based on their symptoms.
-- **AI Health Chatbot**: Pre-triage and get initial guidance through an empathetic AI powered by Google's Gemini-2.0-Flash.
+- **AI Health Chatbot**: Pre-triage and get initial guidance through an empathetic AI powered by Groq & LLaMA.
 - **Real-time Live Queue**: Track your position in the consultation queue live from your dashboard.
 - **AI Triage & Report Analysis**: Instantly analyze blood test reports or ongoing symptoms.
 - **Emergency ER Routing**: Instantly locate the nearest hospital in critical situations.
@@ -38,54 +44,30 @@ Built with ❤️ by **Team Abhiyanta**:
 - **State & Routing**: React Router DOM v6
 - **Backend & Database**: Supabase (PostgreSQL, Row Level Security, Realtime Subscriptions)
 - **Authentication**: Supabase Auth (Email + Password / OAuth Support)
-- **AI Integrations**: `@google/generative-ai` (Gemini 2.0 Flash)
-
----
-
-## ☁️ Deployment to Vercel
-
-HealthQ is designed to be easily deployed to Vercel with zero configuration required for the frontend setup, as Vite is natively supported.
-
-### Step 1: Push to GitHub
-Ensure all code from your local machine is pushed to your GitHub repository.
-
-### Step 2: Import on Vercel
-1. Go to your [Vercel Dashboard](https://vercel.com/dashboard) and click **Add New Project**.
-2. Select the GitHub repository where HealthQ is hosted.
-3. Configure the Project:
-   - **Framework Preset**: Vite
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
-
-### Step 3: Add Environment Variables
-Before clicking Deploy, expand the **Environment Variables** section and add the following keys exactly as they appear in your `.env.local`:
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_GEMINI_API_KEY=your_gemini_api_key
-```
-
-### Step 4: Deploy
-Click **Deploy**. Vercel will install the dependencies, build the React project, and automatically apply the routing rules defined in `vercel.json` (which ensures deep linking works correctly on a Single Page Application). 
+- **AI Integrations**: Groq Cloud API & OpenAI (LLaMA-3.3-70b & GPT-4o-mini)
 
 ---
 
 ## 🛠️ Local Development
 
-To run the application locally on your machine:
+To run the HealthQ application locally on your machine:
 
 1. Clone the repository and navigate to the frontend directory:
    ```bash
-   cd frontend
+   git clone https://github.com/abhaykatre70/health-q.git
+   cd health-q/frontend
    ```
 2. Install npm dependencies:
    ```bash
    npm install
    ```
-3. Set up your `.env.local` variables.
+3. Set up your `.env.local` variables in the `frontend` folder:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   VITE_GROQ_API_KEY=your_groq_api_key
+   ```
 4. Start the development server:
    ```bash
    npm run dev
