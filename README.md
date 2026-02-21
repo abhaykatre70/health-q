@@ -4,6 +4,8 @@ HealthQ is a comprehensive, modern healthcare platform designed to streamline th
 
 Powered by advanced AI for medical triage, wait-time forecasting, and smart scheduling, HealthQ bridges the gap between doctors and patients through a breathtaking, responsive interface and a highly scalable backend.
 
+### 🌐 Live Demo: [https://health-q-three.vercel.app/](https://health-q-three.vercel.app/)
+
 ## 🏆 Team Abhiyanta
 
 Built with ❤️ by **Team Abhiyanta**:
