@@ -1,6 +1,6 @@
 export default function Logo({ className = "w-8 h-8", light = false }) {
     return (
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w-w3.org/2000/svg" className={className}>
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
             <rect width="100" height="100" rx="24" fill={light ? "white" : "url(#paint0_linear)"} />
             <path
                 d="M30 52H45L51 32L63 72L69 52H80"

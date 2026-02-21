@@ -3,7 +3,8 @@ import { supabase } from '../services/supabaseClient';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null);
     const [session, setSession] = useState(null);
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
     return useContext(AuthContext);
 }

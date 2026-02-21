@@ -5,10 +5,11 @@ import {
     ArrowRight, ShieldCheck, Search, CalendarPlus,
     ChevronDown, Star, TrendingUp, HeartPulse,
     BarChart2, AlertTriangle, Sparkles, Stethoscope,
-    Mail, Shield
+    Mail, Shield, Moon, Sun
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import AuthModal from '../components/AuthModal';
 import Logo from '../components/Logo';
 
@@ -94,6 +95,7 @@ export default function Landing() {
     const [authModal, setAuthModal] = useState(false);
     const [authRole, setAuthRole] = useState('patient');
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
 
     const openAuth = (view, role = 'patient') => {
@@ -102,37 +104,39 @@ export default function Landing() {
     };
 
     return (
-        <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors duration-300 overflow-x-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 
             {/* NAVBAR */}
             <motion.nav
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.5 }}
-                className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-16 h-20 bg-white/90 backdrop-blur-xl border-b border-slate-100 shadow-sm"
+                className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-16 h-20 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 shadow-sm transition-colors"
             >
                 <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
                     <Logo className="w-10 h-10 group-hover:scale-105 transition-transform" />
-                    <span className="font-black text-slate-900 text-xl tracking-tight">HealthQ</span>
-                    <span className="hidden md:block text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">AI-Powered</span>
+                    <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Health<span className="text-blue-600">Q</span></span>
                 </div>
 
-                <div className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-500">
+                <div className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {['Features', 'Platform', 'Providers'].map(link => (
-                        <a key={link} href={`#${link.toLowerCase()}`} className="hover:text-slate-900 transition-colors">{link}</a>
+                        <a key={link} href={`#${link.toLowerCase()}`} className="hover:text-slate-900 dark:hover:text-white transition-colors">{link}</a>
                     ))}
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <button onClick={toggleTheme} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mr-2">
+                        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </button>
                     {user ? (
                         <>
                             <button onClick={() => navigate('/dashboard')} className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-colors">Dashboard</button>
-                            <button onClick={() => { logout(); navigate('/'); }} className="text-sm font-bold text-slate-400 hover:text-slate-600 px-3 py-2 hover:bg-slate-100 rounded-full transition-colors">Log out</button>
+                            <button onClick={() => { logout(); navigate('/'); }} className="text-sm font-bold text-slate-400 hover:text-slate-600 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors font-bold text-slate-400 hover:text-slate-600 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">Log out</button>
                         </>
                     ) : (
                         <>
-                            <button onClick={() => openAuth('login')} className="hidden md:block text-sm font-bold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-full hover:bg-slate-100 transition-colors">Log in</button>
-                            <button onClick={() => openAuth('register')} className="text-sm font-bold bg-slate-900 text-white px-5 py-2.5 rounded-full hover:bg-blue-600 transition-all shadow-md">
+                            <button onClick={() => openAuth('login')} className="hidden md:block text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-4 py-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Log in</button>
+                            <button onClick={() => openAuth('register')} className="text-sm font-bold bg-slate-900 dark:bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-600 dark:hover:bg-blue-700 transition-all shadow-md">
                                 Get started →
                             </button>
                         </>
@@ -143,23 +147,23 @@ export default function Landing() {
             {/* HERO */}
             <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
                 {/* Background blobs */}
-                <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-60 pointer-events-none" />
-                <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-cyan-100 rounded-full blur-3xl opacity-50 pointer-events-none" />
+                <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-100 dark:bg-blue-900/20 rounded-full blur-3xl opacity-60 pointer-events-none transition-colors" />
+                <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-cyan-100 dark:bg-cyan-900/20 rounded-full blur-3xl opacity-50 pointer-events-none transition-colors" />
 
                 <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 grid lg:grid-cols-2 gap-16 items-center py-24">
                     {/* Left text */}
                     <div className="space-y-8">
                         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-sm font-bold">
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-sm font-bold transition-colors">
                             <span className="relative flex h-2 w-2">
                                 <span className="animate-ping absolute h-full w-full rounded-full bg-blue-500 opacity-75" />
-                                <span className="relative h-2 w-2 rounded-full bg-blue-600" />
+                                <span className="relative h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
                             </span>
                             Healthcare Coordination Platform · AI-First
                         </motion.div>
 
                         <motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.2 }}
-                            className="text-5xl lg:text-6xl xl:text-7xl font-black leading-[1.05] tracking-tight text-slate-900">
+                            className="text-5xl lg:text-6xl xl:text-7xl font-black leading-[1.05] tracking-tight text-slate-900 dark:text-white transition-colors">
                             Zero wait.<br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600">
                                 Smart care.
@@ -168,7 +172,7 @@ export default function Landing() {
                         </motion.h1>
 
                         <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.35 }}
-                            className="text-lg text-slate-500 max-w-lg leading-relaxed font-medium">
+                            className="text-lg text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed font-medium transition-colors">
                             HealthQ eliminates hospital wait times with constraint-based scheduling, live AI predictions, emergency routing, and automated multi-channel notifications.
                         </motion.p>
 
@@ -201,9 +205,19 @@ export default function Landing() {
                                 className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 text-white font-bold shadow-xl shadow-blue-500/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
                                 <CalendarPlus className="w-5 h-5" /> Book Appointment
                             </button>
+                            <button onClick={() => navigate('/hospitals')}
+                                className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-red-50 text-red-600 font-bold border border-red-100 hover:bg-red-100 hover:-translate-y-0.5 transition-all shadow-md">
+                                <Activity className="w-5 h-5" /> Emergency Check-in
+                            </button>
                             <button onClick={() => openAuth('register', 'provider')}
                                 className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-slate-800 font-bold border border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 hover:-translate-y-0.5 transition-all shadow-md">
                                 <Stethoscope className="w-5 h-5 text-blue-600" /> Join as Provider
+                            </button>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="pt-4">
+                            <button onClick={() => navigate('/hospitals')} className="group flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all font-bold text-xs uppercase tracking-widest">
+                                <span>Check Live Doctor Availability Without Login</span>
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                             </button>
                         </motion.div>
                     </div>

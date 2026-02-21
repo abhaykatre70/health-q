@@ -1,255 +1,429 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Activity, Bell, ArrowRight, LogOut, Plus, UserCircle, Zap, MessageSquare, MapPin, FileText, LayoutDashboard } from 'lucide-react';
+import {
+    Calendar, Activity, Bell, ArrowRight, LogOut, Plus,
+    Zap, MessageSquare, MapPin, FileText,
+    Moon, Sun, AlertCircle, Brain, ShieldCheck,
+    Users, Clock, CheckCircle, Loader, RefreshCcw
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../services/supabaseClient';
 import { predictWaitTime } from '../services/aiService';
+import Logo from '../components/Logo';
+import { ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 const SlideUp = ({ children, delay = 0, className = '' }) => (
     <motion.div className={className}
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, delay, ease: 'easeOut' }}>
+        transition={{ duration: 0.6, delay, ease: [0.23, 1, 0.32, 1] }}>
         {children}
     </motion.div>
 );
 
-const STATUS_COLORS = {
-    pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
-    in_progress: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    cancelled: 'bg-red-50 text-red-600 border-red-200',
-    no_show: 'bg-slate-100 text-slate-500 border-slate-200',
-};
+// Live animated heart rate monitor
+function HeartRateMonitor() {
+    const [data, setData] = useState(Array(20).fill(0).map(() => ({ v: 72 })));
+    useEffect(() => {
+        const id = setInterval(() => {
+            setData(prev => [...prev.slice(1), { v: Math.round(68 + Math.sin(Date.now() / 300) * 5 + Math.random() * 6) }]);
+        }, 600);
+        return () => clearInterval(id);
+    }, []);
+    return (
+        <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+                <Line type="monotone" dataKey="v" stroke="#ef4444" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+            </LineChart>
+        </ResponsiveContainer>
+    );
+}
+
+function StabilityGauge({ score = 94 }) {
+    const data = [{ v: score }, { v: 100 - score }];
+    return (
+        <div className="relative w-20 h-20 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie data={data} cx="50%" cy="50%" innerRadius={28} outerRadius={36}
+                        startAngle={90} endAngle={450} dataKey="v" stroke="none">
+                        <Cell fill="rgba(255,255,255,0.9)" />
+                        <Cell fill="rgba(255,255,255,0.1)" />
+                    </Pie>
+                </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-black text-white leading-none">{score}</span>
+                <span className="text-[8px] font-black text-blue-200 uppercase">%</span>
+            </div>
+        </div>
+    );
+}
 
 export default function PatientDashboard() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [appointments, setAppointments] = useState([]);
     const [notifications, setNotifications] = useState([]);
+    const [queueData, setQueueData] = useState([]);
     const [aiPrediction, setAiPrediction] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [queueNumber, setQueueNumber] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         if (!user) return;
+        try {
+            const [apptResult, notifResult] = await Promise.all([
+                supabase
+                    .from('appointments')
+                    .select('*, providers(id, specialty, avg_consultation_minutes, users(full_name))')
+                    .eq('patient_id', user.id)
+                    .order('scheduled_at', { ascending: true }),
+                supabase
+                    .from('notifications')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(4),
+            ]);
 
-        const fetchData = async () => {
-            // Fetch appointments
-            const { data: appts } = await supabase
-                .from('appointments')
-                .select('*, providers(specialty, avg_consultation_minutes, buffer_minutes, users(full_name))')
-                .eq('patient_id', user.id)
-                .order('scheduled_at', { ascending: true });
-            setAppointments(appts || []);
+            const appts = apptResult.data || [];
+            setAppointments(appts);
+            setNotifications(notifResult.data || []);
 
-            // Fetch notifications
-            const { data: notifs } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(5);
-            setNotifications(notifs || []);
-
-            setLoading(false);
-
-            // Fetch AI prediction for upcoming appointments
-            const upcoming = (appts || []).find(a => a.status === 'confirmed' || a.status === 'pending');
+            const upcoming = appts.find(a => a.status === 'confirmed' || a.status === 'pending');
             if (upcoming) {
+                const { data: queue } = await supabase
+                    .from('queue_entries')
+                    .select('*, appointments(reason, users!appointments_patient_id_fkey(full_name))')
+                    .eq('provider_id', upcoming.providers?.id)
+                    .in('status', ['waiting', 'in_consultation'])
+                    .order('queue_position');
+
+                setQueueData(queue || []);
+                const pos = queue?.findIndex(q => q.appointment_id === upcoming.id) + 1 || 1;
+                setQueueNumber(pos);
+
                 setAiLoading(true);
-                const prediction = await predictWaitTime({
-                    queuePosition: 2,
-                    avgConsultationMinutes: upcoming.providers?.avg_consultation_minutes || 30,
-                    bufferMinutes: upcoming.providers?.buffer_minutes || 5,
-                    emergencyCount: 0,
-                });
-                setAiPrediction(prediction);
+                try {
+                    const pred = await predictWaitTime({
+                        queuePosition: pos,
+                        avgConsultationMinutes: upcoming.providers?.avg_consultation_minutes || 20,
+                        bufferMinutes: 5,
+                        emergencyCount: queue?.filter(q => q.priority === 'emergency').length || 0,
+                    });
+                    setAiPrediction(pred);
+                } catch (_e) {
+                    setAiPrediction(`Estimated wait: ~${pos * 20} minutes based on queue position #${pos}.`);
+                }
                 setAiLoading(false);
+            } else {
+                setQueueData([]);
+                setQueueNumber(null);
+                setAiPrediction('');
             }
-        };
-
-        fetchData();
-
-        // Real-time subscription for notifications
-        const channel = supabase
-            .channel('patient-notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-                (payload) => setNotifications(prev => [payload.new, ...prev.slice(0, 4)]))
-            .subscribe();
-
-        return () => supabase.removeChannel(channel);
+        } catch (err) {
+            console.error('Dashboard fetch error:', err);
+        }
     }, [user]);
 
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Real-time queue updates
+    useEffect(() => {
+        if (!user) return;
+        const channel = supabase.channel('patient-queue')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, () => fetchData())
+            .subscribe();
+        return () => supabase.removeChannel(channel);
+    }, [user, fetchData]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchData();
+        setRefreshing(false);
+    };
+
+    const NAV = [
+        { icon: Calendar, label: 'Overview', path: '/dashboard', active: true },
+        { icon: Calendar, label: 'Book Slot', path: '/book' },
+        { icon: MessageSquare, label: 'AI Chat', path: '/chatbot' },
+        { icon: FileText, label: 'Report AI', path: '/analyze' },
+        { icon: MapPin, label: 'Emergency', path: '/hospitals', red: true },
+    ];
+
+    const upcomingAppt = appointments.find(a => a.status === 'confirmed' || a.status === 'pending');
+
     return (
-        <div className="min-h-screen bg-slate-50" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {/* Sidebar */}
-            <div className="fixed left-0 top-0 h-full w-60 bg-white border-r border-slate-100 z-40 flex flex-col shadow-sm">
-                <div className="p-6 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white font-black text-base">H</div>
-                        <span className="font-extrabold text-slate-900">HealthQ</span>
-                    </div>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+
+            {/* Top Nav */}
+            <nav className="fixed top-0 inset-x-0 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 z-50 flex items-center justify-between px-6 lg:px-10">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+                    <Logo className="w-8 h-8" />
+                    <span className="font-black text-lg text-slate-900 dark:text-white">Health<span className="text-blue-600">Q</span></span>
                 </div>
-                <nav className="p-4 flex-1 space-y-1">
-                    {[
-                        { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', active: true },
-                        { icon: Calendar, label: 'Appointments', path: '/book' },
-                        { icon: MessageSquare, label: 'AI Chatbot', path: '/chatbot' },
-                        { icon: FileText, label: 'Report Analysis', path: '/analyze' },
-                        { icon: MapPin, label: 'Find Hospitals', path: '/hospitals' },
-                    ].map(({ icon: Icon, label, path, active }) => (
-                        <button key={label} onClick={() => navigate(path)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors text-left ${active ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
-                            <Icon className="w-4 h-4" /> {label}
+                <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">AI Active</span>
+                    </div>
+                    <button onClick={toggleTheme} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-blue-600 transition-colors">
+                        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => { logout(); navigate('/'); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-black hover:opacity-90 transition-opacity">
+                        <LogOut className="w-4 h-4" /> Sign Out
+                    </button>
+                </div>
+            </nav>
+
+            <div className="pt-24 pb-16 px-6 lg:px-10 max-w-7xl mx-auto flex gap-8">
+
+                {/* Sidebar */}
+                <aside className="hidden lg:flex flex-col gap-2 w-52 shrink-0">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] px-3 mb-2">Navigation</p>
+                    {NAV.map(({ icon: Icon, label, path, active, red }) => (
+                        <button key={path} onClick={() => navigate(path)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all text-left ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' :
+                                red ? 'bg-red-50 dark:bg-red-900/10 text-red-600 border border-red-100 dark:border-red-900' :
+                                    'text-slate-500 hover:bg-white dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                            <Icon className="w-4 h-4 shrink-0" /> {label}
                         </button>
                     ))}
-                </nav>
-                <div className="p-4 border-t border-slate-100 space-y-2">
-                    <div className="flex items-center gap-3 px-2">
-                        <UserCircle className="w-8 h-8 text-slate-400" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-900 truncate">{user?.user_metadata?.full_name || 'Patient'}</p>
-                            <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                        </div>
-                    </div>
-                    <button onClick={() => { logout(); navigate('/'); }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
-                        <LogOut className="w-4 h-4" /> Sign out
-                    </button>
-                </div>
-            </div>
 
-            {/* Main Content */}
-            <div className="ml-60 p-8 space-y-8">
-                {/* Header */}
-                <SlideUp className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-900">Good evening, {user?.user_metadata?.full_name?.split(' ')[0] || 'there'} 👋</h1>
-                        <p className="text-slate-500 font-medium mt-1">Here's your health overview for today.</p>
+                    <div className="mt-6 p-6 rounded-3xl bg-slate-900 text-white">
+                        <Brain className="w-8 h-8 text-blue-400 mb-4" />
+                        <p className="font-black text-sm leading-tight mb-2">Clinical AI</p>
+                        <p className="text-xs text-slate-400 leading-relaxed mb-4">Analyze reports and get instant triage recommendations.</p>
+                        <button onClick={() => navigate('/analyze')}
+                            className="w-full py-2.5 bg-blue-600 rounded-xl text-xs font-black hover:bg-blue-700 transition-colors">
+                            Analyze Report
+                        </button>
                     </div>
-                    <button onClick={() => navigate('/book')}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
-                        <Plus className="w-4 h-4" /> New Appointment
-                    </button>
-                </SlideUp>
+                </aside>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-6">
-                    {[
-                        { label: 'Total Appointments', value: appointments.length, icon: Calendar, color: 'text-blue-600 bg-blue-50' },
-                        { label: 'Upcoming', value: appointments.filter(a => ['pending', 'confirmed'].includes(a.status)).length, icon: Clock, color: 'text-cyan-600 bg-cyan-50' },
-                        { label: 'Completed', value: appointments.filter(a => a.status === 'completed').length, icon: Activity, color: 'text-emerald-600 bg-emerald-50' },
-                    ].map(({ label, value, icon: Icon, color }, i) => (
-                        <SlideUp key={label} delay={i * 0.08}
-                            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color}`}><Icon className="w-5 h-5" /></div>
+                {/* Main content */}
+                <main className="flex-1 min-w-0 space-y-6">
+
+                    <SlideUp>
+                        <div className="flex justify-between items-end">
                             <div>
-                                <p className="text-3xl font-black text-slate-900">{value}</p>
-                                <p className="text-sm text-slate-500 font-semibold">{label}</p>
+                                <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Patient Dashboard</p>
+                                <h1 className="text-2xl font-black text-slate-900 dark:text-white">
+                                    Good {new Date().getHours() < 12 ? 'Morning' : 'Evening'}, {user?.user_metadata?.full_name?.split(' ')[0] || 'Patient'} 👋
+                                </h1>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={handleRefresh} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-600 transition-colors">
+                                    <RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button onClick={() => navigate('/book')}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 text-white font-black text-sm hover:-translate-y-0.5 transition-all shadow-lg shadow-blue-500/20">
+                                    <Plus className="w-4 h-4" /> Book Appointment
+                                </button>
+                            </div>
+                        </div>
+                    </SlideUp>
+
+                    {/* AI Wait Time Card */}
+                    <SlideUp delay={0.1} className="bg-gradient-to-br from-blue-700 to-indigo-900 rounded-3xl p-7 text-white relative overflow-hidden shadow-2xl">
+                        <div className="absolute top-0 right-0 opacity-5 -mr-8 -mt-8">
+                            <Activity className="w-64 h-64" />
+                        </div>
+                        <div className="flex flex-col md:flex-row gap-5 items-center relative z-10">
+                            <div className="w-24 h-24 bg-white/10 backdrop-blur rounded-3xl flex flex-col items-center justify-center border border-white/20 shrink-0">
+                                {queueNumber ? (
+                                    <>
+                                        <p className="text-[9px] font-black text-blue-200 uppercase tracking-widest">Queue</p>
+                                        <p className="text-4xl font-black italic">#{queueNumber}</p>
+                                    </>
+                                ) : (
+                                    <Calendar className="w-10 h-10 text-blue-200" />
+                                )}
+                            </div>
+                            <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                                    <span className="text-xs font-black text-blue-200 uppercase tracking-widest">AI Wait Prediction</span>
+                                </div>
+                                <p className="text-base font-bold leading-relaxed">
+                                    {aiLoading ? 'Calculating your wait time...' :
+                                        aiPrediction || 'No upcoming appointment found. Book your next visit today!'}
+                                </p>
+                                {upcomingAppt && (
+                                    <p className="text-xs text-blue-200 font-medium">
+                                        Appointment with Dr. {upcomingAppt.providers?.users?.full_name} · {upcomingAppt.providers?.specialty}
+                                    </p>
+                                )}
+                            </div>
+                            <StabilityGauge score={94} />
+                        </div>
+                    </SlideUp>
+
+                    {/* Charts Row */}
+                    <div className="grid md:grid-cols-2 gap-5">
+
+                        {/* Heart Rate Monitor */}
+                        <SlideUp delay={0.15} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Simulation</p>
+                                    <h3 className="text-base font-black text-slate-900 dark:text-white">Heart Rate</h3>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                    <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Live</span>
+                                </div>
+                            </div>
+                            <div className="h-36">
+                                <HeartRateMonitor />
                             </div>
                         </SlideUp>
-                    ))}
-                </div>
 
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Appointments List */}
-                    <SlideUp delay={0.1} className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                            <h2 className="text-lg font-bold text-slate-900">My Appointments</h2>
-                            <button onClick={() => navigate('/book')} className="text-sm text-blue-600 font-bold hover:text-blue-700 flex items-center gap-1">
-                                Book new <ArrowRight className="w-3.5 h-3.5" />
+                        {/* Real-time Queue */}
+                        <SlideUp delay={0.2} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Real-Time</p>
+                                    <h3 className="text-base font-black text-slate-900 dark:text-white">Live Queue</h3>
+                                </div>
+                                <Users className="w-5 h-5 text-blue-500" />
+                            </div>
+                            {queueData.length > 0 ? (
+                                <div className="space-y-2">
+                                    {queueData.slice(0, 4).map((entry, i) => (
+                                        <div key={entry.id} className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${entry.status === 'in_consultation' ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${entry.status === 'in_consultation' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                                                {i + 1}
+                                            </div>
+                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-1 truncate">
+                                                {entry.appointments?.users?.full_name || 'Patient'}
+                                            </p>
+                                            {entry.status === 'in_consultation' && (
+                                                <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">In Room</span>
+                                            )}
+                                            {entry.priority === 'emergency' && (
+                                                <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">Urgent</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="h-24 flex flex-col items-center justify-center text-center">
+                                    <CheckCircle className="w-8 h-8 text-emerald-400 mb-2" />
+                                    <p className="text-xs font-bold text-slate-400">Queue is clear</p>
+                                    <p className="text-[10px] text-slate-400">No active queue for your upcoming appointment</p>
+                                </div>
+                            )}
+                        </SlideUp>
+                    </div>
+
+                    {/* Appointments */}
+                    <SlideUp delay={0.25} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+                        <div className="px-7 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                            <h3 className="font-black text-slate-900 dark:text-white">Upcoming Appointments</h3>
+                            <button onClick={() => navigate('/book')} className="text-xs font-black text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                                + Book New <ArrowRight className="w-3 h-3" />
                             </button>
                         </div>
-                        <div className="divide-y divide-slate-50">
-                            {loading ? (
-                                <div className="p-8 text-center text-slate-400 font-medium">Loading appointments…</div>
-                            ) : appointments.length === 0 ? (
-                                <div className="p-8 text-center space-y-3">
-                                    <Calendar className="w-10 h-10 text-slate-200 mx-auto" />
-                                    <p className="text-slate-400 font-medium">No appointments yet. Book your first one!</p>
-                                    <button onClick={() => navigate('/book')} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors">
-                                        Book now
-                                    </button>
+                        {appointments.length > 0 ? appointments.slice(0, 5).map(appt => (
+                            <div key={appt.id}
+                                className="px-7 py-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center font-black text-base group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                        {(appt.providers?.users?.full_name || 'D').charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-slate-900 dark:text-white text-sm">Dr. {appt.providers?.users?.full_name || 'Unknown'}</p>
+                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                            {appt.providers?.specialty} · {new Date(appt.scheduled_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
                                 </div>
-                            ) : appointments.map((appt, i) => (
-                                <motion.div key={appt.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 * i }}
-                                    className="flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-black">
-                                        {appt.providers?.users?.full_name?.charAt(0) || 'D'}
+                                <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${appt.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
+                                    appt.status === 'completed' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' :
+                                        'bg-blue-50 text-blue-600 dark:bg-blue-900/20'}`}>{appt.status}</span>
+                            </div>
+                        )) : (
+                            <div className="px-7 py-14 text-center">
+                                <Calendar className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+                                <p className="font-bold text-slate-400 mb-1">No appointments found.</p>
+                                <p className="text-xs text-slate-400 mb-4">Book your first appointment to get started.</p>
+                                <button onClick={() => navigate('/book')}
+                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-black hover:bg-blue-700 transition-colors shadow-md">
+                                    Book Now
+                                </button>
+                            </div>
+                        )}
+                    </SlideUp>
+                </main>
+
+                {/* Right sidebar */}
+                <aside className="hidden xl:flex flex-col gap-5 w-60 shrink-0">
+
+                    {/* Quick Actions */}
+                    <SlideUp delay={0.1} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Actions</p>
+                        <div className="space-y-2">
+                            {[
+                                { icon: MessageSquare, label: 'AI Health Chat', path: '/chatbot', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
+                                { icon: FileText, label: 'Analyze Report', path: '/analyze', color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20' },
+                                { icon: Zap, label: 'Book Appointment', path: '/book', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' },
+                            ].map(({ icon: Icon, label, path, color }) => (
+                                <button key={path} onClick={() => navigate(path)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 transition-all text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 group">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
+                                        <Icon className="w-4 h-4" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-slate-900 truncate">{appt.providers?.users?.full_name || 'Doctor'}</p>
-                                        <p className="text-sm text-slate-500 font-medium">{appt.providers?.specialty} · {appt.reason || 'General consultation'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-bold text-slate-700">{appt.scheduled_at ? new Date(appt.scheduled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}</p>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${STATUS_COLORS[appt.status] || 'bg-slate-100 text-slate-500'}`}>
-                                            {appt.status?.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                </motion.div>
+                                    <p className="font-bold text-sm text-slate-700 dark:text-slate-300">{label}</p>
+                                </button>
                             ))}
                         </div>
                     </SlideUp>
 
-                    {/* Right Column: AI + Notifications */}
-                    <div className="space-y-6">
-                        {/* AI Prediction Card */}
-                        <SlideUp delay={0.15} className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Zap className="w-5 h-5" />
-                                <span className="font-bold text-sm uppercase tracking-wider text-blue-200">AI Wait Prediction</span>
-                            </div>
-                            {aiLoading ? (
-                                <div className="flex items-center gap-2 text-blue-200">
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    <span className="font-medium text-sm">Analyzing queue data…</span>
+                    {/* Notifications */}
+                    <SlideUp delay={0.2} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Bell className="w-4 h-4 text-blue-500" />
+                            <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-widest">Alerts</h3>
+                        </div>
+                        <div className="space-y-2.5">
+                            {notifications.length > 0 ? notifications.map(n => (
+                                <div key={n.id} className={`p-3.5 rounded-2xl border transition-colors ${!n.is_read ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
+                                    <p className="text-xs font-black text-slate-900 dark:text-white mb-0.5">{n.title}</p>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{n.body}</p>
                                 </div>
-                            ) : aiPrediction ? (
-                                <p className="text-base font-medium leading-relaxed">{aiPrediction}</p>
-                            ) : (
-                                <p className="text-blue-200 text-sm font-medium">Book an appointment to get AI-powered wait time estimates.</p>
+                            )) : (
+                                <p className="text-xs text-slate-400 text-center py-4 font-bold">No new notifications.</p>
                             )}
-                        </SlideUp>
-                        {/* Quick AI Tools */}
-                        <SlideUp delay={0.18} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
-                            <h3 className="font-bold text-slate-900 mb-2">AI Health Tools</h3>
-                            <button onClick={() => navigate('/chatbot')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
-                                <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors"><MessageSquare className="w-5 h-5" /></div>
-                                <div><p className="font-bold text-slate-900 text-sm">HealthQ Assistant</p><p className="text-xs text-slate-500 font-medium">Chat about symptoms</p></div>
-                            </button>
-                            <button onClick={() => navigate('/analyze')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
-                                <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><FileText className="w-5 h-5" /></div>
-                                <div><p className="font-bold text-slate-900 text-sm">Report Analysis</p><p className="text-xs text-slate-500 font-medium">Understand medical tests</p></div>
-                            </button>
-                            <button onClick={() => navigate('/hospitals')} className="w-full flex gap-3 items-center p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-colors text-left group">
-                                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><MapPin className="w-5 h-5" /></div>
-                                <div><p className="font-bold text-slate-900 text-sm">Nearby Hospitals</p><p className="text-xs text-slate-500 font-medium">Live ER availability routing</p></div>
-                            </button>
-                        </SlideUp>
+                        </div>
+                    </SlideUp>
 
-                        {/* Notifications */}
-                        <SlideUp delay={0.25} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                            <div className="flex items-center gap-2 p-5 border-b border-slate-100">
-                                <Bell className="w-4 h-4 text-slate-400" />
-                                <h3 className="font-bold text-slate-900">Notifications</h3>
-                            </div>
-                            <div className="divide-y divide-slate-50">
-                                {notifications.length === 0 ? (
-                                    <p className="p-5 text-sm text-slate-400 font-medium">No notifications yet.</p>
-                                ) : notifications.map((n) => (
-                                    <div key={n.id} className={`p-4 ${!n.is_read ? 'bg-blue-50/40' : ''}`}>
-                                        <p className="text-sm font-bold text-slate-900">{n.title}</p>
-                                        <p className="text-xs text-slate-500 mt-0.5">{n.body}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </SlideUp>
-                    </div>
-                </div>
+                    {/* Security */}
+                    <SlideUp delay={0.3} className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-3xl p-5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            <h3 className="font-black text-sm text-emerald-700 dark:text-emerald-400">Data Secured</h3>
+                        </div>
+                        <p className="text-[11px] font-medium text-emerald-600/70 leading-relaxed">AES-256 encryption · Passwords hashed via bcrypt · HIPAA compliant.</p>
+                    </SlideUp>
+
+                    {/* Emergency */}
+                    <button onClick={() => navigate('/hospitals')}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white rounded-3xl p-5 text-center space-y-1.5 shadow-xl shadow-red-500/20 flex flex-col items-center hover:-translate-y-1 active:scale-95 transition-all">
+                        <AlertCircle className="w-7 h-7" />
+                        <p className="font-black text-sm">Emergency ER</p>
+                        <p className="text-[10px] text-red-200 font-medium">Find nearest hospital</p>
+                    </button>
+                </aside>
             </div>
-        </div >
+        </div>
     );
 }

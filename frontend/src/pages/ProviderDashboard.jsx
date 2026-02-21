@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Users, AlertTriangle, Activity, LogOut, UserCircle, CheckCircle, Phone, Clock, TrendingUp, Cpu, Stethoscope, ChevronRight, BarChart3, Plus } from 'lucide-react';
+import {
+    Calendar, Users, AlertTriangle, Activity, LogOut, UserCircle,
+    CheckCircle, Phone, Clock, TrendingUp, Cpu, Stethoscope,
+    ChevronRight, BarChart3, Plus, Moon, Sun
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../services/supabaseClient';
+import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from 'recharts';
 import Logo from '../components/Logo';
 
 const SlideUp = ({ children, delay = 0, className = '' }) => (
@@ -25,23 +31,12 @@ const FORECAST_DATA = [
 
 export default function ProviderDashboard() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [queue, setQueue] = useState([]);
     const [todayAppts, setTodayAppts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [callingNext, setCallingNext] = useState(false);
-
-    useEffect(() => {
-        if (!user) return;
-        fetchData();
-
-        const channel = supabase
-            .channel('queue-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, () => fetchData())
-            .subscribe();
-
-        return () => supabase.removeChannel(channel);
-    }, [user]);
 
     const fetchData = async () => {
         const today = new Date().toISOString().split('T')[0];
@@ -85,6 +80,19 @@ export default function ProviderDashboard() {
         setLoading(false);
     };
 
+    useEffect(() => {
+        if (!user) return;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        fetchData();
+
+        const channel = supabase
+            .channel('queue-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries' }, () => fetchData())
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
+    }, [user]);
+
     const callNext = async () => {
         const waiting = queue.filter(q => q.status === 'waiting');
         if (!waiting.length) return;
@@ -107,15 +115,20 @@ export default function ProviderDashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-inter flex">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-inter flex transition-colors duration-300">
             {/* Sidebar */}
-            <div className="w-64 bg-slate-950 text-white flex flex-col flex-none relative z-40 overflow-hidden h-screen sticky top-0">
+            <div className="w-64 bg-slate-950 text-white flex flex-col flex-none relative z-40 overflow-hidden h-screen sticky top-0 transition-colors">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full pointer-events-none" />
 
                 <div className="p-6 border-b border-white/10 relative z-10">
-                    <div className="flex items-center gap-3">
-                        <Logo light className="w-8 h-8" />
-                        <span className="font-black text-xl tracking-tight">HealthQ</span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Logo light className="w-8 h-8" />
+                            <span className="font-black text-xl tracking-tight">HealthQ</span>
+                        </div>
+                        <button onClick={toggleTheme} className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white transition-colors">
+                            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        </button>
                     </div>
                 </div>
 
@@ -156,23 +169,23 @@ export default function ProviderDashboard() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 min-w-0 p-8 lg:p-10 space-y-8 overflow-y-auto h-screen">
+            <div className="flex-1 min-w-0 p-8 lg:p-10 space-y-8 overflow-y-auto h-screen transition-colors">
                 {/* Header Layer */}
                 <SlideUp className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest shadow-sm flex items-center gap-1">
+                            <span className="px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest shadow-sm flex items-center gap-1 transition-colors">
                                 <Activity className="w-3 h-3 text-blue-600" /> Live Data Sync
                             </span>
                             <span className="text-slate-400 text-xs font-medium">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                         </div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Facility Command Center</h1>
+                        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Facility Command Center</h1>
                     </div>
                     <div className="flex gap-3">
-                        <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all focus:ring-2 focus:ring-slate-200 focus:outline-none">
+                        <button className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all focus:ring-2 focus:ring-slate-200 focus:outline-none">
                             Generate Report
                         </button>
-                        <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-md hover:bg-slate-800 hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                        <button className="px-4 py-2 bg-slate-900 dark:bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-slate-800 dark:hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2">
                             <Plus className="w-4 h-4" /> Walk-in Patient
                         </button>
                     </div>
@@ -181,17 +194,17 @@ export default function ProviderDashboard() {
                 {/* Top KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[
-                        { title: 'Total Handled', value: todayAppts.filter(a => a.status === 'completed').length + '', target: todayAppts.length, label: 'vs scheduled', icon: Users, color: 'blue' },
-                        { title: 'Avg Consult Time', value: '14m', target: '15m optimal', label: '1m under target', icon: Clock, color: 'emerald' },
-                        { title: 'Critical Cases', value: queue.filter(q => q.priority === 'emergency').length + '', target: 'AI Routed', label: 'Action required', icon: AlertTriangle, color: 'red' },
-                        { title: 'Efficiency Score', value: '94%', target: '+2.4%', label: 'From yesterday', icon: TrendingUp, color: 'indigo' },
+                        { title: 'Total Handled', value: todayAppts.filter(a => a.status === 'completed').length + '', target: todayAppts.length, label: 'vs scheduled', icon: Users, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' },
+                        { title: 'Avg Consult Time', value: '14m', target: '15m optimal', label: '1m under target', icon: Clock, color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' },
+                        { title: 'Critical Cases', value: queue.filter(q => q.priority === 'emergency').length + '', target: 'AI Routed', label: 'Action required', icon: AlertTriangle, color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' },
+                        { title: 'Efficiency Score', value: '94%', target: '+2.4%', label: 'From yesterday', icon: TrendingUp, color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' },
                     ].map((stat, i) => (
-                        <SlideUp key={stat.title} delay={i * 0.05} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
-                            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-${stat.color}-600`}><stat.icon className="w-16 h-16 -mr-4 -mt-4" /></div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{stat.title}</p>
-                            <h3 className="text-3xl font-black text-slate-900 mb-2">{stat.value}</h3>
+                        <SlideUp key={stat.title} delay={i * 0.05} className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group transition-colors">
+                            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${stat.color.split(' ')[0]}`}><stat.icon className="w-16 h-16 -mr-4 -mt-4" /></div>
+                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">{stat.title}</p>
+                            <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{stat.value}</h3>
                             <div className="flex items-center gap-2 mt-auto">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-${stat.color}-50 text-${stat.color}-700`}>{stat.target}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stat.color}`}>{stat.target}</span>
                                 <span className="text-xs text-slate-400 font-medium">{stat.label}</span>
                             </div>
                         </SlideUp>
@@ -201,14 +214,14 @@ export default function ProviderDashboard() {
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Left/Main Col: AI Priority Queue */}
                     <div className="lg:col-span-2 space-y-6">
-                        <SlideUp delay={0.2} className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col h-[600px]">
+                        <SlideUp delay={0.2} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden flex flex-col h-[600px] transition-colors">
                             {/* Queue Header */}
-                            <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                            <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
                                 <div>
-                                    <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                                    <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                                         <Cpu className="w-5 h-5 text-blue-600" /> AI Priority Routing
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-medium mt-1">Queue dynamically sorted by ML severity assessment.</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Queue dynamically sorted by ML severity assessment.</p>
                                 </div>
                                 <button onClick={callNext} disabled={callingNext || !queue.some(q => q.status === 'waiting')}
                                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold bg-blue-600 text-white text-sm hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]">
@@ -236,10 +249,10 @@ export default function ProviderDashboard() {
                                             {queue.map((entry, i) => (
                                                 <motion.div key={entry.id} layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
                                                     className={`group relative overflow-hidden flex items-center gap-4 p-4 rounded-2xl border transition-all ${entry.status === 'in_consultation'
-                                                            ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-600/20 text-white'
-                                                            : entry.priority === 'emergency'
-                                                                ? 'bg-red-50/50 border-red-200 hover:border-red-300'
-                                                                : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'
+                                                        ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-600/20 text-white'
+                                                        : entry.priority === 'emergency'
+                                                            ? 'bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-800 hover:border-red-300'
+                                                            : 'bg-white dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-500 hover:shadow-md'
                                                         }`}>
 
                                                     {/* In Consult Indicator */}
@@ -256,13 +269,13 @@ export default function ProviderDashboard() {
 
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-0.5">
-                                                            <h3 className={`font-black text-base truncate ${entry.status === 'in_consultation' ? 'text-white' : 'text-slate-900'}`}>
+                                                            <h3 className={`font-black text-base truncate ${entry.status === 'in_consultation' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                                                                 {entry.appointments?.users?.full_name || 'Patient'}
                                                             </h3>
                                                             {entry.status === 'in_consultation' && <span className="text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full backdrop-blur-md">IN ROOM</span>}
                                                             {entry.priority === 'emergency' && entry.status !== 'in_consultation' && <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm"><AlertTriangle className="w-3 h-3" /> CRITICAL</span>}
                                                         </div>
-                                                        <p className={`text-sm font-medium truncate ${entry.status === 'in_consultation' ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                        <p className={`text-sm font-medium truncate ${entry.status === 'in_consultation' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>
                                                             {entry.appointments?.reason || 'General Routine checkup'}
                                                         </p>
                                                     </div>
@@ -301,23 +314,19 @@ export default function ProviderDashboard() {
                                 <h3 className="font-bold text-sm uppercase tracking-widest text-slate-300">Live Load Forecast</h3>
                             </div>
 
-                            <div className="flex items-end justify-between h-32 gap-1.5 border-b border-white/10 pb-2 mb-4">
-                                {FORECAST_DATA.map((data, idx) => (
-                                    <div key={idx} className="relative w-full flex flex-col items-center justify-end h-full group">
-                                        {/* Hover Tooltip */}
-                                        <div className="absolute -top-8 bg-white text-slate-900 text-[10px] font-black px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none truncate">
-                                            {data.load}% Vol
-                                        </div>
-                                        {/* Bar */}
-                                        <motion.div
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${data.load}%` }}
-                                            transition={{ duration: 1, delay: 0.5 + (idx * 0.05) }}
-                                            className={`w-full rounded-t-sm transition-colors ${data.load > 85 ? 'bg-red-500' : data.load > 60 ? 'bg-orange-400' : 'bg-indigo-500'
-                                                }`}
-                                        />
-                                    </div>
-                                ))}
+                            <div className="h-[140px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={FORECAST_DATA}>
+                                        <defs>
+                                            <linearGradient id="colorLoad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', color: '#fff' }} />
+                                        <Area type="monotone" dataKey="load" stroke="#818cf8" strokeWidth={3} fillOpacity={1} fill="url(#colorLoad)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
 
                             <div className="flex justify-between text-[10px] font-bold text-slate-500 font-mono">
@@ -335,8 +344,8 @@ export default function ProviderDashboard() {
                         </SlideUp>
 
                         {/* Facility Metrics */}
-                        <SlideUp delay={0.4} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-                            <h3 className="font-bold text-slate-900 mb-4">Current Capacity</h3>
+                        <SlideUp delay={0.4} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 transition-colors">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4">Current Capacity</h3>
                             <div className="space-y-4">
                                 {[
                                     { dept: 'Emergency Room', use: 92, status: 'Critical' },
@@ -345,10 +354,10 @@ export default function ProviderDashboard() {
                                 ].map((d, i) => (
                                     <div key={i}>
                                         <div className="flex justify-between text-xs font-bold mb-1.5">
-                                            <span className="text-slate-700">{d.dept}</span>
+                                            <span className="text-slate-700 dark:text-slate-300">{d.dept}</span>
                                             <span className={d.use > 85 ? 'text-red-600' : d.use > 60 ? 'text-orange-500' : 'text-emerald-500'}>{d.use}% ({d.status})</span>
                                         </div>
-                                        <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                        <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                             <motion.div
                                                 initial={{ width: 0 }} animate={{ width: `${d.use}%` }} transition={{ duration: 1, delay: 0.6 + (i * 0.1) }}
                                                 className={`h-full rounded-full ${d.use > 85 ? 'bg-red-500' : d.use > 60 ? 'bg-orange-400' : 'bg-emerald-500'}`}
