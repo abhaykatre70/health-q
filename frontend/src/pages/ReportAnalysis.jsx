@@ -93,7 +93,7 @@ export default function ReportAnalysis() {
                                 value={reportText}
                                 onChange={(e) => setReportText(e.target.value)}
                                 placeholder="Paste the text from your blood test, MRI, or doctor's notes here..."
-                                className="w-full h-64 p-4 resize-none outline-none text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder:text-slate-400"
+                                className="w-full h-64 p-4 resize-none outline-none text-sm text-slate-800 dark:text-slate-100 bg-transparent placeholder:text-slate-400"
                             />
                             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center transition-colors">
                                 <span className="text-xs text-slate-400 font-medium">Data is analyzed securely.</span>

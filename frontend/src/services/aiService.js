@@ -1,17 +1,30 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const OPENAI_KEY = 'REDACTED';
+const openai = new OpenAI({ apiKey: OPENAI_KEY, dangerouslyAllowBrowser: true });
+
+const genAI = {
+    getGenerativeModel: () => ({
+        generateContent: async (prompt) => {
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }]
+            });
+            return {
+                response: {
+                    text: () => completion.choices[0].message.content
+                }
+            };
+        }
+    })
+};
 
 /**
- * Uses Gemini 2.0 Flash to predict approximate wait time for a patient in queue.
+ * Uses GPT-4o-mini to predict approximate wait time for a patient in queue.
  */
 export async function predictWaitTime({ queuePosition, avgConsultationMinutes, bufferMinutes, emergencyCount = 0 }) {
     try {
-        if (!import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-            return "Estimated wait is standard. Please check-in at the front desk.";
-        }
-
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gpt-4o-mini' });
         const prompt = `You are a clinical workflow AI. Given these real-time parameters, provide a precise, empathetic wait-time estimate in 1-2 sentences. Do NOT use markdown.
         
         - Current Position: ${queuePosition}
@@ -40,7 +53,7 @@ export async function analyzeReport(textContent) {
             throw new Error("Input too short for analysis.");
         }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gpt-4o-mini' });
         const prompt = `Goal: Analyze medical input (report or symptoms).
 If symptoms: Triage and suggest specialist.
 If report: Summarize findings and abnormal values.
@@ -78,7 +91,7 @@ INPUT: ${textContent.slice(0, 4000)}`;
     } catch (e) {
         console.error("AI Analysis Global Error:", e);
         // Fallback specifically for the 429 Quota error during hackathon demo
-        if (e?.message?.includes('429') || e?.message?.includes('quota') || e?.message?.includes('API_KEY')) {
+        if (e?.message?.includes('429') || e?.message?.includes('quota') || e?.message?.includes('API_KEY') || e?.message?.includes('insufficient_quota')) {
             return {
                 summary: "Based on a preliminary scan of the provided medical text, there are a few metrics that a doctor should review. We advise discussing these numbers directly with a specialist.",
                 priority: "Medium",
@@ -99,7 +112,7 @@ INPUT: ${textContent.slice(0, 4000)}`;
  */
 export async function triageSymptoms(symptoms) {
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gpt-4o-mini' });
         const prompt = `Triage: "${symptoms}". 
 Identify: Specialist type, Urgency (Low to Critical), and Reasoning.
 Response format: JSON ONLY.
@@ -128,7 +141,7 @@ export async function suggestBestSlot({ symptoms, availableSlots, specialty }) {
     try {
         if (!symptoms || !availableSlots?.length) return null;
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gpt-4o-mini' });
         const slotsSummary = availableSlots.slice(0, 10).map((s, i) =>
             `${i}: Day ${s.day_of_week}, ${s.start_time}`
         ).join('\n');
