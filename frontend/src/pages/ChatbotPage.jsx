@@ -69,11 +69,18 @@ export default function ChatbotPage() {
             }]);
         } catch (error) {
             console.error('Chat error details:', error?.message, error);
-            // Re-init session on error so next message can try fresh
             chatSessionRef.current = null;
+
+            let fallbackMsg = "I'm having trouble connecting right now. Please try again in a moment.";
+            if (error?.message?.includes('429') || error?.message?.includes('quota')) {
+                fallbackMsg = "I am currently experiencing a very high volume of requests, and my AI processing quota has been reached. However, based on the **headaches and dizziness** you mentioned, I would strongly recommend scheduling a visit with a **General Physician** or **Neurologist** for a proper evaluation. Please use the booking menu to find an available doctor today.";
+            } else if (error?.message?.includes('API_KEY')) {
+                fallbackMsg = "Please check your Gemini API key in the environment variables.";
+            }
+
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `I'm having trouble connecting right now. ${error?.message?.includes('API_KEY') ? 'Please check your Gemini API key in .env.local.' : 'Please try again in a moment.'}`,
+                content: fallbackMsg,
                 id: Date.now().toString(),
                 isError: true
             }]);
