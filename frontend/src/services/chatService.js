@@ -14,11 +14,17 @@ Rules:
 - Do not make definitive diagnoses. Suggest possibilities and the right doctor to see.
 `;
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: SYSTEM_INSTRUCTION,
-});
+const getGenAIModel = () => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Missing Gemini API Key");
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    return genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction: SYSTEM_INSTRUCTION,
+    });
+};
 
 export async function createChatSession(history = []) {
     // Filter out internal messages or welcome messages from history
@@ -29,6 +35,7 @@ export async function createChatSession(history = []) {
             parts: [{ text: msg.content }]
         }));
 
+    const model = getGenAIModel();
     return model.startChat({
         history: geminiHistory,
     });
