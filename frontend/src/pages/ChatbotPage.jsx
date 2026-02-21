@@ -73,7 +73,7 @@ export default function ChatbotPage() {
 
             let fallbackMsg = "I'm having trouble connecting right now. Please try again in a moment.";
             if (error?.message?.includes('429') || error?.message?.includes('quota')) {
-                fallbackMsg = "I am currently experiencing a very high volume of requests, and my AI processing quota has been reached. However, based on the **headaches and dizziness** you mentioned, I would strongly recommend scheduling a visit with a **General Physician** or **Neurologist** for a proper evaluation. Please use the booking menu to find an available doctor today.";
+                fallbackMsg = "I am currently experiencing a very high volume of requests, and my AI processing quota has been reached. If you are experiencing concerning symptoms, I strongly recommend using the booking menu to schedule a visit with a doctor for a proper evaluation today.";
             } else if (error?.message?.includes('API_KEY')) {
                 fallbackMsg = "Please check your Gemini API key in the environment variables.";
             }
