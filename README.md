@@ -15,7 +15,7 @@ Powered by advanced AI for medical triage, wait-time forecasting, and smart sche
 Competing against approximately **450 students** in an intense 24-hour hackathon, our 3-member team successfully cleared the first round (PPT presentation) and spent the full night coding to deliver this fully working prototype. The project features a complete backend integration, automated AI services, secure authentication, and deployment best practices, effectively solving real-world clinical coordination challenges.
 
 ### Built with ❤️ by Team Abhiyanta:
-- **[Abhay Katre](https://github.com/abhaykatre70)** - Full Stack Developer
+- **[Abhay Katre](https://github.com/abhaykatre-dev)** - Full Stack Developer
 - **[Vinay Ninave](https://github.com/ninavevinay)** - Full Stack Developer
 - **[Piyush Lomte](https://github.com/piyushlomte)** - Full Stack Developer
 
